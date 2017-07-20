@@ -10,3 +10,5 @@ If you want to see, how it is working:
   3. start it with 'python Symulation.py'
   
 After that you should be able to read 'log1.txt' file that it produced.
+
+# IF YOU WANT TO CONTRIBUTE, PLEASE DON'T COMMIT DIRECLY TO MASTER BRANCH< MAKE PULL REQUESTS
