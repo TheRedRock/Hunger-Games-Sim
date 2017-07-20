@@ -1,4 +1,5 @@
 class LogObject:
+	#this is an comment
 	def __init__(self,name):
 		self.name = name
 		f = open(self.name+".txt","w")
