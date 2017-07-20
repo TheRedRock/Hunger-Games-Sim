@@ -11,4 +11,4 @@ If you want to see, how it is working:
   
 After that you should be able to read 'log1.txt' file that it produced.
 
-# IF YOU WANT TO CONTRIBUTE, PLEASE DON'T COMMIT DIRECLY TO MASTER BRANCH< MAKE PULL REQUESTS
+# IF YOU WANT TO CONTRIBUTE, PLEASE DON'T COMMIT DIRECLY TO MASTER BRANCH >>MAKE PULL REQUESTS<<
