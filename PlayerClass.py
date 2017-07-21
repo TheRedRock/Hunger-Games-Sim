@@ -5,6 +5,7 @@ import copy
 import random
 
 class Player:
+	rebelReasonDict = {"no rebel":0,"hunger":1,"stress":2,"health":3}
 	def __init__(self, Id):
 		self.id = Id
 		#these are strings
@@ -177,6 +178,11 @@ class Player:
 		elif self.HealthPoints <0:
 			return True, "died of body system failure"
 		return False, "is alive"
+	def isRebel(self):
+		if self.Calories < 200 or self.Fat < 1000:
+			return self.rebelReasonDict["hunger"]
+		return self.rebelReasonDict["no rebel"]
+		
 class Perk:
 	def __init__(self,Cost,Id,Name,Description):
 		# intigers

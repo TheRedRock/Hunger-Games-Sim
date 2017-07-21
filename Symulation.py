@@ -30,21 +30,31 @@ class Sym:
 			if result[0] is None:
 				allFinished = self.areAllFinished()
 				break
-			#playersPerformingAction = [result[0]]
-			#action = self.makeDecisionNoCathegories(result[0])
-			
 			playersPerformingAction = result[1].listOfPlayersWithGivenTime(result[0].simTime)
 			resultOfDecision = self.makeGroupDecisionNoCathegories(playersPerformingAction)
 			action = resultOfDecision[0]
-			target = [resultOfDecision[1]]
+			target = resultOfDecision[1]
+			ideaOriginators = resultOfDecision[2]
+			# So... people who come up with the idea shouldn't be able to rebell against it.
+			resultOfRebelDetection = self.detectRebelsAndRemoveThemFromParticipants(playersPerformingAction,ideaOriginators)
+			listOfRebels = resultOfRebelDetection[0]
+			playersPerformingAction = resultOfRebelDetection[1]
+			
 			actionResult = action.applyAction(playersPerformingAction,target)
-			self.writeActionInformationToLog(action,actionResult,[x for x in playersPerformingAction if x not in target],target)
+					
+			# This listOfPerformers is only for log to look nice. Players that are target and performer are removed from performers lists by action methods anyway to be extra safe.
+			if not target is None:
+				listOfPerformers = [x for x in playersPerformingAction if x not in target]
+			else:
+				listOfPerformers = playersPerformingAction
+			
+			self.writeActionInformationToLog(action,actionResult,listOfPerformers,target,listOfRebels)
+			
 			for p in playersPerformingAction:
 				p.removeCalories(self.hourlyCalorieCost*action.time)
 				p.simTime+=action.time		
-				# To implement - check if characters are dead.
 				stringToWrite = p.getStringStatus(1) + "\tinventory\n"+ p.getStringItemList(2) + "\ttime passed so far:{}\n".format(p.simTime)
-				#self.theLog.writeToLog(stringToWrite)
+				self.theLog.writeToLog(stringToWrite) # Writes player status to the log
 				isDead = p.isDead()
 				if isDead[0]:
 					result[1].removePlayer(p.id)
@@ -71,23 +81,29 @@ class Sym:
 	def makeDecisionNoCathegories(self,player,group):
 		group.remove(player)
 		group.insert(0,player)
-		actionToReturn = None
-		actionTarget = None
-		if player.Calories < 200:
+		actionToReturn = None	# action to perform
+		actionPlayers = None	# performers of the action
+		actionTarget = None		# target of the action
+		rebelReason = player.isRebel()
+		if rebelReason == PlayerClass.Player.rebelReasonDict["hunger"]:
 			result = ActionMethods.EatFoodCheck([player])
 			if result:
 				actionToReturn = PlayerClass.getActionByName("eat food")
+				actionPlayers = [player]
 			elif ActionMethods.AskForFoodCheck(group,[player]):
 				actionToReturn = PlayerClass.getActionByName("ask for food")
-				actionTarget = player
+				actionPlayers = group
+				actionTarget = [player]
 			else:
 				actionToReturn = PlayerClass.getActionByName("gather food")
+				actionPlayers = group
 		else:
 			# random action
 			actionToReturn = PlayerClass.getPurelyRandomAction()
+			actionPlayers = group
 			if actionToReturn.name == "ask for food":
-				actionTarget = player
-		return actionToReturn, actionTarget
+				actionTarget = [player]
+		return actionToReturn, actionPlayers ,actionTarget
 	
 	# makes decision of group of players.
 	# listOfPlayers - list with Player as elements
@@ -96,18 +112,20 @@ class Sym:
 		action = None
 		actionTarget = None
 		for p in listOfPlayers:
-			result = self.makeDecisionNoCathegories(p,listOfPlayers) # [0] - action, [1] - player to perform action on
+			result = self.makeDecisionNoCathegories(p,listOfPlayers) # [0] - action, [1] - players performing action,[2] - players to perform action on
 			action = result[0]
-			actionTarget = result[1]
+			actionPlayers = result[1]
+			actionTarget = result[2]
 			persuasion = p.Charisma + 0.4 * p.Intelligence + 0.1*random.randint(0,20)
 			appendIsNeeded = True
 			for AaP in actionsAndPersuasionList:
 				if AaP[0].name == action.name:
 					appendIsNeeded = False
 					AaP[1]+=persuasion
+					AaP[3].append(p)
 					break
 			if appendIsNeeded:
-				actionsAndPersuasionList.append([action,persuasion,actionTarget])
+				actionsAndPersuasionList.append([action,persuasion,actionTarget,[p]])
 		# find action with the biggest persuasion
 		action = None
 		actionTarget = None
@@ -117,7 +135,8 @@ class Sym:
 				persuasion = AaP[1]
 				action = AaP[0]
 				actionTarget = AaP[2]
-		return action,actionTarget
+				originators =AaP[3]
+		return action,actionTarget,originators
 
 	#detects if all players in all teams have finished actions for today	
 	def areAllFinished(self):
@@ -127,7 +146,7 @@ class Sym:
 		return True
 			
 	# Writes information about performed action into the log
-	def writeActionInformationToLog(self,action,actionResult,playerList,targetList = None):
+	def writeActionInformationToLog(self,action,actionResult,playerList,targetList = None,listOfRebels = None):
 		if actionResult:
 			textToPrint = "success"
 		else:
@@ -141,13 +160,48 @@ class Sym:
 			for t in targetList:
 				targetNames+=t.Name+', '
 			targetNames = targetNames[:-2]
-		stringToWriteToLog = "\n==== Action Performed: {0}, result:{1}\n== Action performed by:{2}".format(action.name,textToPrint,playerNames)
+			
+		rebelString = ""
+		if (not listOfRebels is None):
+			if listOfRebels:
+				rebelString = "\n== People who rebelled: "
+				for r in listOfRebels:
+					# my god I goofed out. Dictionary in python is not meant to be used backwards
+					# and so I ended up with this monstrosity. Oh well.
+					tmpString = list(PlayerClass.Player.rebelReasonDict.keys())[list(PlayerClass.Player.rebelReasonDict.values()).index(r["cause"])]
+					rebelString+="{0} for {1}, ".format(r["rebel"].Name,tmpString)
+				rebelString = rebelString[:-2]
+		stringToWriteToLog = "\n==== Action Performed: {0}, result:{1}\n== Action performed by:{2}{3}".format(action.name,textToPrint,playerNames,rebelString)
 		if not targetNames == "":
 			stringToWriteToLog+=" targets: {}\n".format(targetNames)
 		else:
 			stringToWriteToLog+='\n'
 		self.theLog.writeToLog(stringToWriteToLog)
 	
+	# gives all players an unique id - becuase things go bad if they are not unique.
+	def giveAllPlayersUniqueIDs(self):
+		listOfUsedIDs = []
+		id = 0
+		for team in self.listOfTeams:
+			for player in team.playerList:
+				while id in listOfUsedIDs:
+					id = random.randint(1,100000)
+				player.id = id
+				listOfUsedIDs.append(id)
+
+	# of course, targets have no say in if they want to be a part of an action or not.
+	# returns a list of rebels
+	def detectRebelsAndRemoveThemFromParticipants(self, listOfPlayers, ideaOriginators):
+		listOfRebels = []
+		listOfParticipants = []
+		rebelReason = None
+		for player in listOfPlayers:
+			rebelReason = player.isRebel()
+			if rebelReason != PlayerClass.Player.rebelReasonDict["no rebel"] and not player in ideaOriginators:
+				listOfRebels.append({"rebel":player,"cause":copy.deepcopy(rebelReason)})
+			else:
+				listOfParticipants.append(player)
+		return listOfRebels,listOfParticipants
 class Team:
 	# listOfPlayers - list with players as elements
 	def __init__(self,listOfPlayers):
@@ -218,6 +272,7 @@ team = Team([pl,pl2])
 theLog = Log.LogObject('log1')
 s = Sym('log1')
 s.listOfTeams.append(team)
+s.giveAllPlayersUniqueIDs()
 for x in range(1,100):
 	theLog.writeToLog("\n~~ DAY {}~~\n\n".format(x))
 	s.runForADay()
