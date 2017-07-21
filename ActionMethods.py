@@ -6,6 +6,8 @@ theLog = Log.LogObject('testLog')
 
 def FoodSearchCheck(*variables):
 	PlayerList = variables[0]
+	if not PlayerList:
+		return False
 	sum =0
 	for p in PlayerList:
 		sum += 2+p.Wisdom
@@ -44,6 +46,8 @@ def Nothing(*variables):
 	#To be honest, this is only for one character.
 def EatFoodCheck(*variables):
 	PlayerList = variables[0]
+	if not PlayerList:
+		return False
 	for p in PlayerList:
 		functionList = [Items.getItemFunction("edible plant"), Items.getItemFunction("processed food")]
 		result = p.findItemWithOneOfItemFunctions(functionList)
